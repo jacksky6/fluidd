@@ -163,6 +163,7 @@
       >
         <v-row align="start">
           <mmu-machine
+            :key="gateMapSize"
             @select-gate="selectGate"
             @edit-filament="editFilament"
           />
@@ -309,6 +310,10 @@ export default class MmuCard extends Mixins(StateMixin, MmuMixin) {
       return `${headline} (disabled)`
     }
     return headline
+  }
+
+  get gateMapSize (): number {
+    return this.gateStatus.length
   }
 
   get showClogDetection (): boolean {
