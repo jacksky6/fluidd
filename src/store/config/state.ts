@@ -134,6 +134,7 @@ export const createState = (): ConfigState => {
       },
       multitool: {
         reverseTools: false,
+        showSpoolman: false,
         expandedSections: [0, 1, 2]
       },
       spoolman: {

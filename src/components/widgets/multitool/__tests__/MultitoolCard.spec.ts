@@ -7,6 +7,7 @@ import type {} from 'vuetify-confirm'
 import Vue from 'vue'
 import { shallowMount } from '@vue/test-utils'
 import MultitoolCard from '../MultitoolCard.vue'
+import CollapsableCard from '@/components/common/CollapsableCard.vue'
 import { createState } from '@/store/printer/state'
 import { SocketActions } from '@/api/socketActions'
 
@@ -14,10 +15,10 @@ vi.mock('@/api/socketActions', () => ({
   SocketActions: { printerGcodeScript: vi.fn().mockResolvedValue('ok') }
 }))
 
-const mountCard = () => {
+const mountCard = (spoolman = true, showSpoolman = false) => {
   const state = Vue.observable({
     printer: createState(),
-    config: { uiSettings: { multitool: { reverseTools: false, expandedSections: [0, 1, 2] } } },
+    config: { uiSettings: { multitool: { reverseTools: false, showSpoolman, expandedSections: [0, 1, 2] } } },
     spoolman: { dialog: { show: false } }
   })
   Vue.set(state.printer.printer, 'multitool', {
@@ -25,6 +26,7 @@ const mountCard = () => {
   })
   state.printer.printer.toolhead.homed_axes = 'xyz'
   const commit = vi.fn()
+  const dispatch = vi.fn()
   const wrapper = shallowMount(MultitoolCard, {
     mocks: {
       $typedState: state,
@@ -34,14 +36,14 @@ const mountCard = () => {
         'printer/getPrinterState': 'ready',
         'wait/hasWaitsBy': () => false,
         'spoolman/getAvailableSpools': [],
-        'server/componentSupport': () => true
+        'server/componentSupport': () => spoolman
       },
       $typedCommit: commit,
-      $typedDispatch: vi.fn(),
+      $typedDispatch: dispatch,
       $t: (key: string) => key
     }
   })
-  return { wrapper, state, commit }
+  return { wrapper, state, commit, dispatch }
 }
 
 afterEach(() => vi.clearAllMocks())
@@ -87,7 +89,7 @@ describe('MultitoolCard command handling', () => {
   })
 
   it('preserves spool binding when selection is cancelled', async () => {
-    const { wrapper, commit } = mountCard()
+    const { wrapper, commit } = mountCard(true, true)
     wrapper.vm.selectSpool(0)
     expect(commit).toHaveBeenCalledWith('spoolman/setDialogState', {
       show: true, spoolSelectionOnly: true, selectedSpoolId: 5
@@ -106,7 +108,7 @@ describe('MultitoolCard command handling', () => {
   })
 
   it('assigns and clears a per-tool spool using the plugin command', async () => {
-    const { wrapper } = mountCard()
+    const { wrapper } = mountCard(true, true)
     wrapper.vm.selectSpool(1)
     await wrapper.vm.onSpoolSelection({ show: false, selectedSpoolId: 12 })
     expect(SocketActions.printerGcodeScript).toHaveBeenLastCalledWith(
@@ -143,6 +145,88 @@ describe('MultitoolCard command handling', () => {
     expect(wrapper.vm.nextTool).toBeNull()
     Vue.set(state.printer.printer.multitool_filament!.loaded, 1, true)
     expect(wrapper.vm.nextTool).toBe(1)
+    wrapper.destroy()
+  })
+})
+
+describe('MultitoolCard presentation and layout', () => {
+  it('hides spool information by default even when Spoolman is installed', () => {
+    const { wrapper, commit } = mountCard()
+    expect(wrapper.find('[data-spool-tool]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('multitool.no_spool')
+    expect(wrapper.text()).not.toContain('multitool.unknown_remaining')
+    wrapper.vm.selectSpool(0)
+    expect(commit).not.toHaveBeenCalled()
+    wrapper.destroy()
+  })
+
+  it('only shows spool binding when explicitly enabled and supported', () => {
+    const disabled = mountCard(false, true)
+    expect(disabled.wrapper.find('[data-spool-tool]').exists()).toBe(false)
+    disabled.wrapper.destroy()
+    const enabled = mountCard(true, true)
+    expect(enabled.wrapper.findAll('[data-spool-tool]')).toHaveLength(2)
+    enabled.wrapper.destroy()
+  })
+
+  it('persists the optional spool display preference', () => {
+    const { wrapper, dispatch } = mountCard()
+    wrapper.vm.showSpoolman = true
+    expect(dispatch).toHaveBeenCalledWith('config/saveByPath', {
+      path: 'uiSettings.multitool.showSpoolman', value: true, server: true
+    })
+    wrapper.destroy()
+  })
+
+  it('enables native layout controls rather than staying in normal card mode', () => {
+    const { wrapper } = mountCard()
+    const props = wrapper.findComponent(CollapsableCard).props()
+    expect(props.draggable).toBe(true)
+    expect(props.layoutPath).toBe('dashboard.multitool-card')
+    const card = shallowMount(CollapsableCard, {
+      propsData: { title: 'Toolchanger', draggable: props.draggable, layoutPath: props.layoutPath },
+      mocks: {
+        $typedState: { config: { layoutMode: true } },
+        $typedGetters: {
+          'layout/getSpecificLayoutName': 'dashboard',
+          'layout/getConfig': () => ({ id: 'multitool-card', enabled: true, collapsed: false })
+        }
+      }
+    })
+    expect(card.vm.inLayout).toBe(true)
+    expect(card.find('.collapsable-card-title').classes()).toContain('draggable')
+    card.destroy()
+    wrapper.destroy()
+  })
+
+  it('keeps the mounted tool visible when unhomed controls are disabled', async () => {
+    const { wrapper, state } = mountCard()
+    state.printer.printer.toolhead.homed_axes = ''
+    await Vue.nextTick()
+    expect(wrapper.vm.blockReason).toBe('not_homed')
+    expect(wrapper.findAll('.multitool-tool-current')).toHaveLength(1)
+    expect(wrapper.find('.multitool-tool-current').text()).toContain('T0')
+    wrapper.destroy()
+  })
+
+  it('does not describe an inactive offset as a missing physical tool', async () => {
+    const { wrapper, state } = mountCard()
+    Vue.set(state.printer.printer, 'multitool_offsets', {
+      applied_tool: -1, applied_x: 0, applied_y: 0, applied_z: 0, adaptive: false
+    })
+    await Vue.nextTick()
+    expect(wrapper.text()).toContain('multitool.offsets_inactive')
+    expect(wrapper.text()).not.toContain('multitool.no_tool')
+    wrapper.destroy()
+  })
+
+  it('omits unused sensors and target-zero clutter without inventing readings', () => {
+    const { wrapper, state } = mountCard()
+    Vue.set(state.printer.printer.multitool!, 'tool_temperatures', [23.5, null])
+    Vue.set(state.printer.printer.multitool!, 'tool_target_temperatures', [0, 0])
+    expect(wrapper.vm.temperature(0)).toBe('23.5 °C')
+    expect(wrapper.vm.temperature(1)).toBe('multitool.temperature_unavailable')
+    expect(wrapper.text()).not.toContain('multitool.loaded_unknown')
     wrapper.destroy()
   })
 })

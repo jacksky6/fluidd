@@ -37,6 +37,7 @@ export interface UiSettings {
 
 export interface MultitoolConfig {
   reverseTools: boolean;
+  showSpoolman: boolean;
   expandedSections: number[];
 }
 

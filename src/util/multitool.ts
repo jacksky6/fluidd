@@ -12,6 +12,15 @@ export interface MultitoolTool {
 
 export const multitoolStages: Klipper.MultitoolStage[] = ['release', 'pickup', 'heat_wait']
 
+export const getMultitoolStageBreakdown = (scope?: Klipper.MultitoolStatsScope) => {
+  const stages = multitoolStages.map(key => {
+    const value = scope?.stages?.[key] ?? 0
+    return { key, seconds: Number.isFinite(value) ? Math.max(0, value) : 0 }
+  })
+  const total = stages.reduce((sum, stage) => sum + stage.seconds, 0)
+  return stages.map(stage => ({ ...stage, percent: total > 0 ? stage.seconds / total * 100 : 0 }))
+}
+
 export const getMultitoolTools = (
   status: Klipper.MultitoolState | undefined,
   filament: Klipper.MultitoolFilamentState | undefined,

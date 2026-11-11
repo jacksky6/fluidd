@@ -1,6 +1,6 @@
 import {
   formatMultitoolDuration, getMultitoolBlockReason, getMultitoolCommand,
-  getMultitoolGroups, getMultitoolTemperature, getMultitoolTools
+  getMultitoolGroups, getMultitoolTemperature, getMultitoolTools, getMultitoolStageBreakdown
 } from '../multitool'
 import { createState } from '@/store/printer/state'
 import type { Spool } from '@/store/spoolman/types'
@@ -59,6 +59,21 @@ describe('multitool commands and interlocks', () => {
 })
 
 describe('multitool state presentation', () => {
+  it('keeps an empty stage bar empty and normalizes actual stage times', () => {
+    expect(getMultitoolStageBreakdown().map(stage => stage.percent)).toEqual([0, 0, 0])
+    const stages = getMultitoolStageBreakdown({ stages: { release: 10, pickup: 20, heat_wait: 30 } })
+    expect(stages[0].percent).toBeCloseTo(100 / 6)
+    expect(stages[1].percent).toBeCloseTo(100 / 3)
+    expect(stages[2].percent).toBe(50)
+    expect(stages.reduce((sum, stage) => sum + stage.percent, 0)).toBeCloseTo(100)
+  })
+
+  it('rejects invalid stage durations instead of producing invalid CSS widths', () => {
+    const stages = getMultitoolStageBreakdown({ stages: { release: -1, pickup: NaN, heat_wait: Infinity } })
+    expect(stages.map(stage => stage.seconds)).toEqual([0, 0, 0])
+    expect(stages.map(stage => stage.percent)).toEqual([0, 0, 0])
+  })
+
   it('does not confuse filament status with physical pickup detection', () => {
     const tools = getMultitoolTools(status(), undefined, [])
     expect(tools.map(tool => tool.loaded)).toEqual([null, null])
