@@ -149,6 +149,16 @@ declare namespace Klipper {
 
       beacon: BeaconState;
 
+      multitool: MultitoolState;
+
+      multitool_clamp: MultitoolClampState;
+
+      multitool_filament: MultitoolFilamentState;
+
+      multitool_offsets: MultitoolOffsetsState;
+
+      multitool_stats: MultitoolStatsState;
+
       mmu: MmuState;
 
       mmu_leds: MmuLedsState;

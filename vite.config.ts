@@ -89,7 +89,7 @@ export default defineConfig({
     vue(),
     version(),
     content(),
-    checker({
+    !process.env.VITEST && checker({
       enableBuild: false,
       vueTsc: {
         tsconfigPath: path.resolve(import.meta.dirname, './tsconfig.app.json')

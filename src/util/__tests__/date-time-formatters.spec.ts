@@ -1,6 +1,9 @@
 import dateTimeFormatters from '../date-time-formatters'
 import { timeTravel } from '@/../tests/unit/utils'
 
+// These assertions use English output regardless of the workstation's locale.
+vi.mock('@/plugins/i18n', () => ({ getAllLocales: () => ['en'] }))
+
 const buildTestDateTimeFormatters = (dateFormatName: string = '', timeFormatName: string = '') => dateTimeFormatters(
   () => dateFormatName,
   () => timeFormatName

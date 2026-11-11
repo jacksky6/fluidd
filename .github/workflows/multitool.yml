@@ -1,0 +1,109 @@
+name: Multitool Package
+
+on:
+  push:
+    branches:
+      - multitool-version
+  workflow_dispatch:
+
+concurrency:
+  group: multitool-package-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/multitool-version'
+    uses: ./.github/workflows/_build.yml
+    with:
+      build-mode: multitool
+    permissions:
+      contents: read
+
+  package:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Download built website
+        uses: actions/download-artifact@v8
+        with:
+          name: fluidd-${{ github.sha }}
+          path: dist
+
+      - name: Create deployment archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s dist/index.html
+          test -s dist/.version
+          test -s dist/release_info.json
+          cd dist
+          zip -qr ../fluidd.zip .
+          cd ..
+          unzip -t fluidd.zip
+          sha256sum fluidd.zip > fluidd.zip.sha256
+
+      - name: Upload deployment archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: fluidd-multitool-${{ github.run_number }}
+          path: |
+            fluidd.zip
+            fluidd.zip.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Update dedicated release tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/multitool-latest" > /dev/null 2>&1; then
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/multitool-latest" \
+              -f sha="$GITHUB_SHA" -F force=true
+          else
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref=refs/tags/multitool-latest -f sha="$GITHUB_SHA"
+          fi
+
+      - name: Publish deployment archive
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: multitool-latest
+          target_commitish: ${{ github.sha }}
+          name: Fluidd Multitool — latest build
+          prerelease: true
+          make_latest: false
+          body: |
+            Fluidd with support for klipper-toolchange-stats, inspired by null01024/mainsail-multitool.
+
+            Branch: `multitool-version`
+            Commit: `${{ github.sha }}`
+            Build: `${{ github.run_number }}`
+
+            Download **fluidd.zip** and extract its contents into the existing Fluidd website directory.
+            Preserve your existing config.json and back up the previous website before replacing it.
+            The archive contains the website directly (index.html at its root), not the source code.
+          files: |
+            fluidd.zip
+            fluidd.zip.sha256
+
+      - name: Write download instructions
+        shell: bash
+        run: |
+          {
+            echo '### Fluidd Multitool package'
+            echo "Commit: \`$GITHUB_SHA\`"
+            echo "[Download fluidd.zip](https://github.com/$GITHUB_REPOSITORY/releases/download/multitool-latest/fluidd.zip)"
+            echo 'The archive has index.html at its root and can replace an existing Fluidd website.'
+          } >> "$GITHUB_STEP_SUMMARY"

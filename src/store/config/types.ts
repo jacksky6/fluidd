@@ -32,6 +32,12 @@ export interface UiSettings {
   history: HistoryConfig;
   mmu: MmuConfig;
   afc: AfcConfig;
+  multitool: MultitoolConfig;
+}
+
+export interface MultitoolConfig {
+  reverseTools: boolean;
+  expandedSections: number[];
 }
 
 export interface WarningsConfig {

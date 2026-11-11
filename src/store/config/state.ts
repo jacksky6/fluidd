@@ -132,6 +132,10 @@ export const createState = (): ConfigState => {
         extrudeSpeed: -1,
         extrudeLength: -1
       },
+      multitool: {
+        reverseTools: false,
+        expandedSections: [0, 1, 2]
+      },
       spoolman: {
         autoSpoolSelectionDialog: true,
         autoOpenQRDetectionCamera: null,

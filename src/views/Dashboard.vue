@@ -51,6 +51,7 @@ import GcodePreviewCard from '@/components/widgets/gcode-preview/GcodePreviewCar
 import JobQueueCard from '@/components/widgets/job-queue/JobQueueCard.vue'
 import SpoolmanCard from '@/components/widgets/spoolman/SpoolmanCard.vue'
 import MmuCard from '@/components/widgets/mmu/MmuCard.vue'
+import MultitoolCard from '@/components/widgets/multitool/MultitoolCard.vue'
 import SensorsCard from '@/components/widgets/sensors/SensorsCard.vue'
 import RunoutSensorsCard from '@/components/widgets/runout-sensors/RunoutSensorsCard.vue'
 import BeaconCard from '@/components/widgets/beacon/BeaconCard.vue'
@@ -74,6 +75,7 @@ import type Sortable from 'sortablejs'
     JobQueueCard,
     SpoolmanCard,
     MmuCard,
+    MultitoolCard,
     SensorsCard,
     RunoutSensorsCard,
     BeaconCard,
@@ -234,6 +236,7 @@ export default class Dashboard extends Mixins(StateMixin) {
     if (item.id === 'runout-sensors-card' && !this.supportsRunoutSensors) return true
     if (item.id === 'spoolman-card' && !this.supportsSpoolman) return true
     if (item.id === 'mmu-card' && !this.supportsMmu) return true
+    if (item.id === 'multitool-card' && !this.$typedState.printer.printer.multitool) return true
     if (item.id === 'sensors-card' && !this.hasSensors) return true
     if (item.id === 'temperature-card' && !this.hasHeatersOrTemperatureSensors) return true
     if (item.id === 'afc-card' && !this.supportsAfc) return true

@@ -2,6 +2,12 @@ name: Build (Reusable)
 
 on:
   workflow_call:
+    inputs:
+      build-mode:
+        description: Vite build mode
+        required: false
+        default: production
+        type: string
 
 permissions: {}
 
@@ -50,12 +56,15 @@ jobs:
           pnpm run circular-check
 
       - name: Build
+        env:
+          BUILD_MODE: ${{ inputs.build-mode }}
         run: |
-          pnpm run build
+          pnpm run build --mode "$BUILD_MODE"
 
       - name: Upload dist
         uses: actions/upload-artifact@v7
         with:
           name: fluidd-${{ github.sha }}
           path: ./dist
+          include-hidden-files: true
           retention-days: 7
